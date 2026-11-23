@@ -10,6 +10,7 @@ It never deletes or replaces the output directory: it only creates it
 when it does not exist yet.
 """
 
+import hashlib
 import os
 import struct
 import sys
@@ -53,7 +54,16 @@ def main():
     written = os.path.getsize(target)
     if written != len(data):
         return fail("wrote %d bytes, expected %d" % (written, len(data)))
-    print("wrote %s (%dx%d, %d bytes)" % (target, width, height, written))
+    # Verify the copy before reporting success: re-read the output and
+    # compare it byte for byte with the shipped image, so a truncated or
+    # corrupted write can never pass silently.
+    with open(target, "rb") as handle:
+        copied = handle.read()
+    if copied != data:
+        return fail("output differs from entry.png after writing")
+    digest = hashlib.sha256(data).hexdigest()[:16]
+    print("wrote %s (%dx%d, %d bytes, sha256 %s...)"
+          % (target, width, height, written, digest))
     return 0
 
 
